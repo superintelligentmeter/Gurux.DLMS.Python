@@ -1,4 +1,4 @@
-#
+﻿#
 #  --------------------------------------------------------------------------
 #   Gurux Ltd
 #
@@ -38,13 +38,22 @@ from ..enums import ErrorCode
 from ..internal._GXCommon import _GXCommon
 from ..GXByteBuffer import GXByteBuffer
 from ..enums import ObjectType, DataType, Unit
+from ..internal._GXLocalizer import _GXLocalizer
+
 
 # pylint: disable=too-many-instance-attributes
 class GXDLMSRegister(GXDLMSObject, IGXDLMSBase):
     """
-    Online help:
-    http://www.gurux.fi/Gurux.DLMS.Objects.GXDLMSRegister
+    Represents a COSEM Register object that holds a value with an associated scaler and unit, as defined by the
+    DLMS/COSEM standard.
+    
+    
+    The GXDLMSRegister class provides access to the value, scaler, and unit attributes of a COSEM
+    Register object. It supports reading and writing the register value, as well as resetting it to its default
+    state. This class is typically used in DLMS/COSEM client and server implementations to interact with
+    register-type data points.
     """
+
     def __init__(self, ln=None, sn=0):
         """
         Constructor.
@@ -52,7 +61,7 @@ class GXDLMSRegister(GXDLMSObject, IGXDLMSBase):
         ln : Logical Name of the object.
         sn : Short Name of the object.
         """
-        #pylint: disable=super-with-arguments
+        # pylint: disable=super-with-arguments
         super(GXDLMSRegister, self).__init__(ObjectType.REGISTER, ln, sn)
         self.value = None
         self.scaler = 1
@@ -63,12 +72,10 @@ class GXDLMSRegister(GXDLMSObject, IGXDLMSBase):
         return client.method(self, 1, 0, DataType.INT8)
 
     def getValues(self):
-        return [self.logicalName,
-                self.value,
-                [self.scaler, self.unit]]
-
+        return [self.logicalName, self.value, [self.scaler, self.unit]]
 
     def invoke(self, settings, e):
+        """See IGXDLMSBase.invoke."""
         #  Resets the value to the default value.
         #  The default value is an instance specific constant.
         if e.index == 1:
@@ -77,17 +84,14 @@ class GXDLMSRegister(GXDLMSObject, IGXDLMSBase):
             e.error = ErrorCode.READ_WRITE_DENIED
 
     def isRead(self, index):
+        """See IGXDLMSBase.isRead."""
         if index == 3:
             return self.unit != 0
-        #pylint: disable=super-with-arguments
+        # pylint: disable=super-with-arguments
         return super(GXDLMSRegister, self).isRead(index)
 
-    #
-    # Returns collection of attributes to read.  If attribute is static
-    #      and
-    # already read or device is returned HW error it is not returned.
-    #
     def getAttributeIndexToRead(self, all_):
+        """See IGXDLMSBase.getAttributeIndexToRead."""
         attributes = []
         #  LN is static and read only once.
         if all_ or not self.logicalName:
@@ -100,26 +104,36 @@ class GXDLMSRegister(GXDLMSObject, IGXDLMSBase):
             attributes.append(2)
         return attributes
 
-    #
-    # Returns amount of attributes.
-    #
     def getAttributeCount(self):
+        """See IGXDLMSBase.getAttributeCount."""
         return 3
 
-
-    #
-    # Returns amount of methods.
-    #
     def getMethodCount(self):
+        """See IGXDLMSBase.getMethodCount."""
         return 1
 
+    def getNames(self):
+        """See IGXDLMSBase.getNames."""
+        return (
+            _GXLocalizer.gettext("Logical name"),
+            _GXLocalizer.gettext("Value"),
+            _GXLocalizer.gettext("Scaler and unit"),
+        )
+
+    def getMethodNames(self):
+        """See IGXDLMSBase.getMethodNames."""
+        return (_GXLocalizer.gettext("Reset"),)
 
     def getDataType(self, index):
-        #pylint: disable=super-with-arguments
+        """See IGXDLMSBase.getDataType."""
+        # pylint: disable=super-with-arguments
         if index == 1:
             return DataType.OCTET_STRING
         if index == 2:
-            return super(GXDLMSRegister, self).getDataType(index)
+            dt = super(GXDLMSRegister, self).getDataType(index)
+            if dt == DataType.NONE:
+                dt = _GXCommon.getDLMSDataType(self.value)
+            return dt
         if index == 3:
             return DataType.STRUCTURE
         raise ValueError("getDataType failed. Invalid attribute index.")
@@ -128,6 +142,7 @@ class GXDLMSRegister(GXDLMSObject, IGXDLMSBase):
     # Returns value of given attribute.
     #
     def getValue(self, settings, e):
+        """See IGXDLMSBase.getValue."""
         if e.index == 1:
             return _GXCommon.logicalNameToBytes(self.logicalName)
         if e.index == 2:
@@ -136,17 +151,17 @@ class GXDLMSRegister(GXDLMSObject, IGXDLMSBase):
             data = GXByteBuffer()
             data.setUInt8(DataType.STRUCTURE)
             data.setUInt8(2)
-            _GXCommon.setData(settings, data, DataType.INT8, math.floor(math.log(self.scaler, 10)))
+            _GXCommon.setData(
+                settings, data, DataType.INT8, math.floor(math.log(self.scaler, 10))
+            )
             _GXCommon.setData(settings, data, DataType.ENUM, int(self.unit))
             return data.array()
         e.error = ErrorCode.READ_WRITE_DENIED
         return None
 
-    #
-    # Set value of given attribute.
-    #
-    #pylint: disable=broad-except
+    # pylint: disable=broad-except
     def setValue(self, settings, e):
+        """See IGXDLMSBase.setValue."""
         if e.index == 1:
             self.logicalName = _GXCommon.toLogicalName(e.value)
         elif e.index == 2:
@@ -173,11 +188,15 @@ class GXDLMSRegister(GXDLMSObject, IGXDLMSBase):
             e.error = ErrorCode.READ_WRITE_DENIED
 
     def load(self, reader):
+        """See IGXDLMSBase.load."""
         self.unit = Unit(reader.readElementContentAsInt("Unit", 0))
         self.scaler = reader.readElementContentAsDouble("Scaler", 1)
         self.value = reader.readElementContentAsObject("Value", None, self, 2)
 
     def save(self, writer):
+        """See IGXDLMSBase.save."""
         writer.writeElementString("Unit", int(self.unit))
         writer.writeElementString("Scaler", self.scaler, 1)
-        writer.writeElementObject("Value", self.value, self.getDataType(2), self.getUIDataType(2))
+        writer.writeElementObject(
+            "Value", self.value, self.getDataType(2), self.getUIDataType(2)
+        )

@@ -32,23 +32,28 @@
 #  Full text may be retrieved at http://www.gnu.org/licenses/gpl-2.0.txt
 # ---------------------------------------------------------------------------
 #
-import setuptools
+from setuptools import setup, find_packages
 
-with open("README.md", "r") as fh:
-    long_description = fh.read()
-
-setuptools.setup(
+setup(
     name="gurux_dlms",
-    version="1.0.173",
+    version="1.0.200",
     author="Gurux Ltd",
     author_email="gurux@gurux.fi",
     description="Gurux DLMS library for Python.",
-    long_description=long_description,
+    long_description=open("README.md").read(),
     long_description_content_type="text/markdown",
     url="https://github.com/gurux/gurux.dlms.python",
-    packages=setuptools.find_packages(),
-    package_data={'gurux_dlms': ['OBISCodes.txt', 'India.txt', 'Italy.txt', 'SaudiArabia.txt', 'Spain.txt']},
-    license='GPLv2',
+    packages=find_packages(),
+    package_data={
+        "gurux_dlms": [
+            "OBISCodes.txt",
+            "India.txt",
+            "Italy.txt",
+            "SaudiArabia.txt",
+            "Spain.txt",
+        ]
+    },
+    license="GPLv2",
     classifiers=[
         "Programming Language :: Python :: 2.7",
         "Programming Language :: Python :: 3",
@@ -62,6 +67,8 @@ setuptools.setup(
         "Programming Language :: Python :: 3.10",
         "Programming Language :: Python :: 3.11",
         "Programming Language :: Python :: 3.12",
+        "Programming Language :: Python :: 3.13",
+        "Programming Language :: Python :: 3.14",
         "License :: OSI Approved :: GNU General Public License v2 (GPLv2)",
         "Operating System :: OS Independent",
     ],

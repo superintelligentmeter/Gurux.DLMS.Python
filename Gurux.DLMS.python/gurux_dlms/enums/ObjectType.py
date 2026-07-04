@@ -270,7 +270,7 @@ class ObjectType(GXIntEnum):
 
     TOKEN_GATEWAY = 115
 
-    IEC_6205541_Attributes = 116
+    IEC_6205541_ATTRIBUTES = 116
 
     # Allow managing attributes of type array of other interface objects.
     ARRAY_MANAGER = 123
@@ -358,7 +358,7 @@ class ObjectType(GXIntEnum):
     LTE_MONITORING = 151
 
     # CoAP setup.
-    CoAPSetup = 152
+    COAP_SETUP = 152
 
     # CoAP diagnostic.
     COAP_DIAGNOSTIC = 153

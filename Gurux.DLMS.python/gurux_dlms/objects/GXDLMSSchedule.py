@@ -42,6 +42,7 @@ from ..GXDate import GXDate
 from ..GXTime import GXTime
 from ..GXByteBuffer import GXByteBuffer
 from ..GXBitString import GXBitString
+from ..internal._GXLocalizer import _GXLocalizer
 
 # pylint: disable=too-many-instance-attributes
 class GXDLMSSchedule(GXDLMSObject, IGXDLMSBase):
@@ -158,6 +159,15 @@ class GXDLMSSchedule(GXDLMSObject, IGXDLMSBase):
     def getMethodCount(self):
         return 3
 
+    def getNames(self):
+        return (_GXLocalizer.gettext("Logical name"),\
+            _GXLocalizer.gettext("Entries"))
+
+    def getMethodNames(self):
+        return (_GXLocalizer.gettext("Enable/disable"),\
+            _GXLocalizer.gettext("Insert"),\
+            _GXLocalizer.gettext("Delete"))
+
     def getDataType(self, index):
         if index == 1:
             return DataType.OCTET_STRING
@@ -188,7 +198,7 @@ class GXDLMSSchedule(GXDLMSObject, IGXDLMSBase):
         data.setUInt8(DataType.UINT16)
         data.setUInt16(it.validityWindow)
         #Add exec week days.
-        _GXCommon.setData(None, data, DataType.BITSTRING, GXBitString.toBitString(it.execWeekdays, 7))
+        _GXCommon.setData(None, data, DataType.BITSTRING, GXBitString(it.execWeekdays, 7))
         #Add exec spec days.
         _GXCommon.setData(None, data, DataType.BITSTRING, it.execSpecDays)
         #Add begin date.

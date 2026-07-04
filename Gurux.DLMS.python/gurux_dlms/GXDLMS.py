@@ -61,7 +61,6 @@ from .enums.TranslatorOutputType import TranslatorOutputType
 from .TranslatorTags import TranslatorTags
 from .TranslatorStandardTags import TranslatorStandardTags
 from .SingleReadResponse import SingleReadResponse
-from .objects.enums import SecuritySuite
 from .ConnectionState import ConnectionState
 from .GXCiphering import GXCiphering
 from .enums.DataType import DataType
@@ -82,6 +81,8 @@ from .plc.enums import (
     PlcSourceAddress,
     PlcDestinationAddress,
 )
+from .compression.GXCompressionArgs import GXCompressionArgs
+from .compression.enums.CompressionOperation import CompressionOperation
 
 
 # pylint: disable=too-many-public-methods,too-many-function-args
@@ -375,9 +376,7 @@ class GXDLMS:
                     reply.setUInt8(DataType.NONE)
                 else:
                     pos = len(reply)
-                    _GXCommon.setData(
-                        p.settings, reply, DataType.OCTET_STRING, p.getTime()
-                    )
+                    _GXCommon.setData(p.settings, reply, DataType.OCTET_STRING, p.time)
                     if p.command != Command.EVENT_NOTIFICATION:
                         reply.move(pos + 1, pos, len(reply) - pos - 1)
                 GXDLMS.multipleBlocks(p, reply, ciphering)
@@ -526,8 +525,7 @@ class GXDLMS:
                             ):
                                 # pylint: disable=W0212
                                 p.settings._onPduEventHandler(True, reply.array())
-                            if p.settings.cipher.securitySuite == SecuritySuite.SUITE_0:
-                                tmp = GXDLMS.cipher0(p, reply)
+                            tmp = GXDLMS.cipher0(p, reply)
                             p.data.size = 0
                             p.data.set(tmp)
                             reply.size = 0
@@ -580,8 +578,7 @@ class GXDLMS:
                 tmp = []
                 # pylint: disable=W0212
                 p.settings._onPduEventHandler(True, reply.array())
-                if p.settings.cipher.securitySuite == SecuritySuite.SUITE_0:
-                    tmp = GXDLMS.cipher0(p, reply.array())
+                tmp = GXDLMS.cipher0(p, reply.array())
                 reply.size = 0
                 reply.set(tmp)
         if p.command == Command.GENERAL_BLOCK_TRANSFER or (
@@ -630,7 +627,7 @@ class GXDLMS:
             GXDLMS.addLLCBytes(p.settings, reply)
 
     @classmethod
-    def cipher0(cls, p, data):
+    def __getCipheringParameters(cls, p):
         cmd = 0
         key = None
         cipher = p.settings.cipher
@@ -661,9 +658,51 @@ class GXDLMS:
         s = AesGcmParameter(cmd, cipher.systemTitle, key, cipher.authenticationKey)
         s.ignoreSystemTitle = p.settings.standard == Standard.ITALY
         s.security = cipher.security
+        s.securitySuite = cipher.securitySuite
         s.invocationCounter = cipher.invocationCounter
+        return s
+
+    @classmethod
+    def __decompress(cls, settings, tmp):
+        if settings._onCompression:
+            args = GXCompressionArgs(
+                CompressionOperation.DECOMPRESS,
+                settings.compressionOptions,
+                tmp,
+            )
+            settings._onCompression(args)
+            if args.operation != CompressionOperation.DECOMPRESS:
+                raise Exception("Decompression was not successful.")
+            return args.outputData
+        raise Exception("Data is compressed but compression handler is not defined.")
+
+    @classmethod
+    def __compress(cls, settings, tmp):
+        if settings._onCompression:
+            args = GXCompressionArgs(
+                CompressionOperation.COMPRESS,
+                settings.compressionOptions,
+                tmp,
+            )
+            settings._onCompression(args)
+            if args.operation != CompressionOperation.COMPRESS:
+                # Id data is not compressed.
+                return None
+            return args.outputData
+        raise Exception("Data compression failed. Compression handler is not defined.")
+
+    @classmethod
+    def cipher0(cls, p, data):
+        s = cls.__getCipheringParameters(p)
+        if p.settings.compressionOptions.enableCompression:
+            tmp4 = cls.__compress(p.settings, data)
+            if tmp4:
+                # If data is compressed, set compression bit to security control.
+                data = tmp4
+                s.compression = True
+
         tmp = GXCiphering.encrypt(s, data)
-        cipher.invocationCounter = cipher.invocationCounter + 1
+        p.settings.cipher.invocationCounter = p.settings.cipher.invocationCounter + 1
         return tmp
 
     @classmethod
@@ -1002,8 +1041,7 @@ class GXDLMS:
     def getPlcFrame(cls, settings, creditFields, data):
         frameSize = data.available()
         # Max frame size is 124 bytes.
-        if frameSize > 134:
-            frameSize = 134
+        frameSize = min(frameSize, 134)
         # PAD Length.
         padLen = (36 - ((11 + frameSize) % 36)) % 36
         bb = GXByteBuffer()
@@ -1023,16 +1061,16 @@ class GXDLMS:
         bb.setUInt16(val)
         bb.setUInt8(padLen)
         # Control byte.
-        bb.setUInt8(PlcDataLinkData.Request)
+        bb.setUInt8(PlcDataLinkData.REQUEST)
         bb.setUInt8(settings.serverAddress)
         bb.setUInt8(settings.clientAddress)
-        bb.Set(data, frameSize)
+        bb.set(data, frameSize)
         # Add padding.
         while padLen != 0:
             bb.setUInt8(0)
-            --padLen
+            padLen = padLen - 1
         # Checksum.
-        crc = GXFCS16.countFCS16(bb.Data, 0, bb.Size)
+        crc = _GXFCS16.countFCS16(bb.array(), 0, bb.size)
         bb.setUInt16(crc)
         # Remove sent data in server side.
         if settings.isServer:
@@ -1058,22 +1096,22 @@ class GXDLMS:
         val |= settings.plc.macDestinationAddress & 0xFFF
         bb.setUInt16(val)
         tmp = cls.getHdlcFrame(settings, frame_, data, True)
-        padLen = (36 - ((10 + tmp.Length) % 36)) % 36
+        padLen = (36 - ((10 + len(tmp)) % 36)) % 36
         bb.setUInt8(padLen)
-        bb.Set(tmp)
+        bb.set(tmp)
         # Add padding.
         while padLen != 0:
             bb.setUInt8(0)
-            --padLen
+            padLen = padLen - 1
 
         # Checksum.
-        crc = _GXFCS16.countFCS24(bb.Data, 2, bb.Size - 2 - padLen)
+        crc = _GXFCS16.countFCS24(bb.array(), 2, bb.size - 2 - padLen)
         bb.setUInt8(crc >> 16)
         bb.setUInt16(crc)
         # Add NC
-        val = bb.Size / 36
-        if bb.Size % 36 != 0:
-            ++val
+        val = bb.size / 36
+        if bb.size % 36 != 0:
+            val = 1 + val
         if val == 1:
             val = PlcMacSubframes.ONE
         elif val == 2:
@@ -1244,7 +1282,7 @@ class GXDLMS:
                 if (cf & 0x1) == 0x1:
                     data.moreData = RequestTypes.FRAME
             else:
-                if not GXDLMS.getLLCBytes(server, reply) and data.xml:
+                if not GXDLMS.getLLCBytes(server, reply):
                     GXDLMS.getLLCBytes(not server, reply)
         return cf
 
@@ -1298,6 +1336,11 @@ class GXDLMS:
                     and settings.serverAddress == target
                 ):
                     reply.position = index + 1
+                # If client wants to know used client and server address.
+                elif settings.clientAddress == 0 and (
+                    settings.serverAddress == 0x7F or settings.serverAddress == 0
+                ):
+                    return True
                 return False
             # If All-station (Broadcast).
             if (
@@ -2866,7 +2909,7 @@ class GXDLMS:
                     settings.cipher.blockCipherKey,
                     settings.cipher.authenticationKey,
                 )
-            tmp = GXCiphering.decrypt(settings.cipher, p, data.data)
+            tmp = GXCiphering.decrypt(settings, p, data.data)
             if data.isComplete and (data.moreData & RequestTypes.FRAME) == 0:
                 # pylint: disable=W0212
                 settings._onPduEventHandler(data.moreData == 0, tmp)
@@ -2909,7 +2952,10 @@ class GXDLMS:
                         settings.cipher.blockCipherKey,
                         settings.cipher.authenticationKey,
                     )
-                data.data.set(GXCiphering.decrypt(settings.cipher, p, bb))
+                tmp = GXCiphering.decrypt(settings, p, bb)
+                if p.compression:
+                    tmp = cls.__decompress(settings, tmp)
+                data.data.set(tmp)
                 # pylint: disable=W0212
                 settings._onPduEventHandler(data.moreData == 0, data.data.array())
                 data.cipheredCommand = data.command
@@ -2930,9 +2976,12 @@ class GXDLMS:
                 settings.cipher.blockCipherKey,
                 settings.cipher.authenticationKey,
             )
-            tmp = GXCiphering.decrypt(settings.cipher, p, data.data)
+            tmp = GXCiphering.decrypt(settings, p, data.data)
             # pylint: disable=W0212
             settings._onPduEventHandler(data.moreData == 0, tmp)
+            if p.compression:
+                tmp = cls.__decompress(settings, tmp)
+
             data.data.clear()
             data.data.set(tmp)
             data.command = Command.NONE

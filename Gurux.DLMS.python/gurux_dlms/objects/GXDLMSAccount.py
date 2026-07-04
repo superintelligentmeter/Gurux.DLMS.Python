@@ -43,6 +43,7 @@ from .GXCurrency import GXCurrency
 from .GXTokenGatewayConfiguration import GXTokenGatewayConfiguration
 from .GXCreditChargeConfiguration import GXCreditChargeConfiguration
 from ..GXBitString import GXBitString
+from ..internal._GXLocalizer import _GXLocalizer
 
 # pylint: disable=too-many-instance-attributes
 class GXDLMSAccount(GXDLMSObject, IGXDLMSBase):
@@ -190,6 +191,38 @@ class GXDLMSAccount(GXDLMSObject, IGXDLMSBase):
     def getMethodCount(self):
         return 3
 
+    #
+    # Returns names of attribute indexes.
+    #
+    def getNames(self):
+        return (_GXLocalizer.gettext("Logical Name"),
+                _GXLocalizer.gettext("Payment mode"),
+                _GXLocalizer.gettext("Current credit in use"),
+                _GXLocalizer.gettext("Current credit status"),
+                _GXLocalizer.gettext("Available credit"),
+                _GXLocalizer.gettext("Amount to clear"),
+                _GXLocalizer.gettext("Clearance threshold"),
+                _GXLocalizer.gettext("Aggregated debt"),
+                _GXLocalizer.gettext("Credit references"),
+                _GXLocalizer.gettext("Charge references"),
+                _GXLocalizer.gettext("Credit charge configurations"),
+                _GXLocalizer.gettext("Tokengateway configurations"),
+                _GXLocalizer.gettext("Account activation time"),
+                _GXLocalizer.gettext("Account closure time"),
+                _GXLocalizer.gettext("Currency"),
+                _GXLocalizer.gettext("Low credit threshold"),
+                _GXLocalizer.gettext("Next credit available threshold"),
+                _GXLocalizer.gettext("Max provision"),
+                _GXLocalizer.gettext("Max provisionPeriod"))
+
+    #
+    # Returns method names.
+    #
+    def getMethodNames(self):
+        return (_GXLocalizer.gettext("Activate account"),
+                _GXLocalizer.gettext("Close account"),
+                _GXLocalizer.gettext("Reset account"))
+
     def getDataType(self, index):
         if index == 1:
             ret = DataType.OCTET_STRING
@@ -252,7 +285,7 @@ class GXDLMSAccount(GXDLMSObject, IGXDLMSBase):
         elif e.index == 3:
             ret = self.currentCreditInUse
         elif e.index == 4:
-            ret = GXBitString.toBitString(self.currentCreditStatus, 8)
+            ret = GXBitString(self.currentCreditStatus, 8)
         elif e.index == 5:
             ret = self.availableCredit
         elif e.index == 6:
@@ -301,7 +334,7 @@ class GXDLMSAccount(GXDLMSObject, IGXDLMSBase):
                     bb.setUInt8(DataType.OCTET_STRING)
                     bb.setUInt8(6)
                     bb.set(_GXCommon.logicalNameToBytes(it.chargeReference))
-                    _GXCommon.setData(settings, bb, DataType.BITSTRING, GXBitString.toBitString(it.collectionConfiguration, 3))
+                    _GXCommon.setData(settings, bb, DataType.BITSTRING, GXBitString(it.collectionConfiguration, 3))
             ret = bb.array()
         elif e.index == 12:
             bb = GXByteBuffer()

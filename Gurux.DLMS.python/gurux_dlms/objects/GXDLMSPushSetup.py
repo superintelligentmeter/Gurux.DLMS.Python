@@ -49,6 +49,7 @@ from .enums.RestrictionType import RestrictionType
 from .enums.ProtectionType import ProtectionType
 from .enums.DataProtectionIdentifiedKeyType import DataProtectionIdentifiedKeyType
 from .enums.DataProtectionWrappedKeyType import DataProtectionWrappedKeyType
+from ..internal._GXLocalizer import _GXLocalizer
 
 
 # pylint: disable=too-many-instance-attributes
@@ -231,6 +232,31 @@ class GXDLMSPushSetup(GXDLMSObject, IGXDLMSBase):
             return 1
         return 2
 
+    def getNames(self):
+        return (
+            _GXLocalizer.gettext("Logical name"),
+            _GXLocalizer.gettext("Object list"),
+            _GXLocalizer.gettext("Send destination and method"),
+            _GXLocalizer.gettext("Communication window"),
+            _GXLocalizer.gettext("Randomisation start interval"),
+            _GXLocalizer.gettext("Number of retries"),
+            _GXLocalizer.gettext("Repetition delay"),
+            _GXLocalizer.gettext("Port reference"),
+            _GXLocalizer.gettext("Push client sap"),
+            _GXLocalizer.gettext("Push protection parameters"),
+            _GXLocalizer.gettext("Push operation method"),
+            _GXLocalizer.gettext("Confirmation parameters"),
+            _GXLocalizer.gettext("Last confirmation date time"),
+        )
+
+    #
+    # Returns method names.
+    #
+    def getMethodNames(self):
+        if self.version < 2:
+            return (_GXLocalizer.gettext("Push"),)
+        return (_GXLocalizer.gettext("Push"), _GXLocalizer.gettext("Reset"))
+
     def getDataType(self, index):
         ret = None
         if index == 1:
@@ -270,7 +296,7 @@ class GXDLMSPushSetup(GXDLMSObject, IGXDLMSBase):
                 # LastConfirmationDateTime
                 if index == 13:
                     ret = DataType.DATETIME
-        if ret == None:
+        if ret is None:
             raise ValueError("getDataType failed. Invalid attribute index.")
         return ret
 
@@ -405,7 +431,7 @@ class GXDLMSPushSetup(GXDLMSObject, IGXDLMSBase):
                 ret = buff.array()
         elif e.index == 8:
             if self.portReference:
-                ret = _GXCommon.logicalNameToBytes(self.portReference.LogicalName)
+                ret = _GXCommon.logicalNameToBytes(self.portReference.logicalName)
             else:
                 ret = None
         elif e.index == 9:
@@ -445,7 +471,7 @@ class GXDLMSPushSetup(GXDLMSObject, IGXDLMSBase):
                 elif it.keyInfo.dataProtectionKeyType == DataProtectionKeyType.WRAPPED:
                     buff.setUInt8(2)
                     _GXCommon.setData(
-                        settings, buff, DataType.Enum, it.keyInfo.wrappedKey.keyType
+                        settings, buff, DataType.ENUM, it.keyInfo.wrappedKey.keyType
                     )
                     _GXCommon.setData(
                         settings, buff, DataType.OCTET_STRING, it.keyInfo.wrappedKey.key
@@ -497,27 +523,27 @@ class GXDLMSPushSetup(GXDLMSObject, IGXDLMSBase):
                 co.attributeIndex = it[2]
                 co.dataIndex = it[3]
                 self.pushObjectList.append((obj, co))
-            if self.version > 1:
-                restriction = it[4]
-                co.restriction.type = RestrictionType(restriction[0])
-                if co.restriction.type == RestrictionType.NONE:
-                    pass
-                elif (
-                    co.restriction.type == RestrictionType.DATE
-                    or co.restriction.type == RestrictionType.ENTRY
-                ):
-                    co.Restriction.From = restriction[1]
-                    co.Restriction.To = restriction[2]
-                else:
-                    raise ValueError("Invalid restriction type.")
-                for c in it[5]:
-                    tp = ObjectType(c[0])
-                    ln = _GXCommon.toLogicalName(c[1])
-                    obj = settings.objects.findByLN(tp, ln)
-                    if obj is None:
-                        obj = _GXObjectFactory.CreateObject(tp)
-                        obj.logicalName = ln
-                    co.columns.append((obj, co))
+                if self.version > 1:
+                    restriction = it[4]
+                    co.restriction.type = RestrictionType(restriction[0])
+                    if co.restriction.type == RestrictionType.NONE:
+                        pass
+                    elif co.restriction.type in (
+                        RestrictionType.DATE,
+                        RestrictionType.ENTRY,
+                    ):
+                        co.restriction.from_ = restriction[1]
+                        co.restriction.to = restriction[2]
+                    else:
+                        raise ValueError("Invalid restriction type.")
+                    for c in it[5]:
+                        tp = ObjectType(c[0])
+                        ln = _GXCommon.toLogicalName(c[1])
+                        obj = settings.objects.findByLN(tp, ln)
+                        if obj is None:
+                            obj = _GXObjectFactory.createObject(tp)
+                            obj.logicalName = ln
+                        co.columns.append((obj, co))
 
     def __getPushProtectionParameters(self, e):
         self.pushProtectionParameters.clear()
@@ -603,12 +629,13 @@ class GXDLMSPushSetup(GXDLMSObject, IGXDLMSBase):
                 self.confirmationParameters.startDate = e.value[0]
                 self.confirmationParameters.interval = e.value[1]
             else:
-                e.Error = ErrorCode.ReadWriteDenied
+                e.error = ErrorCode.READ_WRITE_DENIED
         elif self.version > 0 and e.index == 13:
-            LastConfirmationDateTime = e.value
+            self.lastConfirmationDateTime = e.value
         else:
             e.error = ErrorCode.READ_WRITE_DENIED
 
+    # pylint: disable=import-outside-toplevel
     def load(self, reader):
         from .._GXObjectFactory import _GXObjectFactory
 
@@ -624,7 +651,7 @@ class GXDLMSPushSetup(GXDLMSObject, IGXDLMSBase):
                 obj = reader.objects.findByLN(ot, ln)
                 if not obj:
                     obj = _GXObjectFactory.createObject(ot)
-                    obj.LogicalName = ln
+                    obj.logicalName = ln
                 self.pushObjectList.append((obj, co))
             reader.readEndElement("ObjectList")
         self.service = ServiceType(reader.readElementContentAsInt("Service"))
@@ -667,16 +694,16 @@ class GXDLMSPushSetup(GXDLMSObject, IGXDLMSBase):
                     it.protectionType = ProtectionType(
                         reader.readElementContentAsInt("ProtectionType")
                     )
-                    it.transactionId = _GXCommon.HexToBytes(
+                    it.transactionId = GXByteBuffer.hexToBytes(
                         reader.readElementContentAsString("TransactionId")
                     )
-                    it.originatorSystemTitle = _GXCommon.HexToBytes(
+                    it.originatorSystemTitle = GXByteBuffer.hexToBytes(
                         reader.readElementContentAsString("OriginatorSystemTitle")
                     )
-                    it.recipientSystemTitle = _GXCommon.HexToBytes(
+                    it.recipientSystemTitle = GXByteBuffer.hexToBytes(
                         reader.readElementContentAsString("RecipientSystemTitle")
                     )
-                    it.otherInformation = _GXCommon.HexToBytes(
+                    it.otherInformation = GXByteBuffer.hexToBytes(
                         reader.readElementContentAsString("OtherInformation")
                     )
                     it.keyInfo.dataProtectionKeyType = DataProtectionKeyType(
@@ -688,13 +715,13 @@ class GXDLMSPushSetup(GXDLMSObject, IGXDLMSBase):
                     it.keyInfo.wrappedKey.keyType = DataProtectionWrappedKeyType(
                         reader.readElementContentAsInt("WrappedKeyType")
                     )
-                    it.keyInfo.wrappedKey.key = _GXCommon.HexToBytes(
+                    it.keyInfo.wrappedKey.key = GXByteBuffer.hexToBytes(
                         reader.readElementContentAsString("WrappedKey")
                     )
-                    it.keyInfo.agreedKey.parameters = _GXCommon.HexToBytes(
+                    it.keyInfo.agreedKey.parameters = GXByteBuffer.hexToBytes(
                         reader.readElementContentAsString("WrappedKeyParameters")
                     )
-                    it.keyInfo.agreedKey.data = _GXCommon.HexToBytes(
+                    it.keyInfo.agreedKey.data = GXByteBuffer.hexToBytes(
                         reader.readElementContentAsString("AgreedKeyData")
                     )
                     self.pushProtectionParameters.append(it)
@@ -761,18 +788,18 @@ class GXDLMSPushSetup(GXDLMSObject, IGXDLMSBase):
                     writer.writeStartElement("Item")
                     writer.writeElementString("ProtectionType", int(it.protectionType))
                     writer.writeElementString(
-                        "TransactionId", _GXCommon.toHex(it.transactionId, False)
+                        "TransactionId", GXByteBuffer.hex(it.transactionId, False)
                     )
                     writer.writeElementString(
                         "OriginatorSystemTitle",
-                        _GXCommon.toHex(it.originatorSystemTitle, False),
+                        GXByteBuffer.hex(it.originatorSystemTitle, False),
                     )
                     writer.writeElementString(
                         "RecipientSystemTitle",
-                        _GXCommon.toHex(it.recipientSystemTitle, False),
+                        GXByteBuffer.hex(it.recipientSystemTitle, False),
                     )
                     writer.writeElementString(
-                        "OtherInformation", _GXCommon.toHex(it.otherInformation, False)
+                        "OtherInformation", GXByteBuffer.hex(it.otherInformation, False)
                     )
                     writer.writeElementString(
                         "DataProtectionKeyType", int(it.keyInfo.dataProtectionKeyType)
@@ -787,16 +814,16 @@ class GXDLMSPushSetup(GXDLMSObject, IGXDLMSBase):
                         "KeyType", int(it.keyInfo.wrappedKey.keyType)
                     )
                     writer.writeElementString(
-                        "Key", _GXCommon.toHex(it.keyInfo.wrappedKey.key, False)
+                        "Key", GXByteBuffer.hex(it.keyInfo.wrappedKey.key, False)
                     )
                     writer.writeEndElement()
                     writer.writeStartElement("AgreedKey")
                     writer.writeElementString(
                         "Parameters",
-                        _GXCommon.toHex(it.keyInfo.agreedKey.parameters, False),
+                        GXByteBuffer.hex(it.keyInfo.agreedKey.parameters, False),
                     )
                     writer.writeElementString(
-                        "Data", _GXCommon.toHex(it.keyInfo.agreedKey.data, False)
+                        "Data", GXByteBuffer.hex(it.keyInfo.agreedKey.data, False)
                     )
                     writer.writeEndElement()
                     writer.writeEndElement()
@@ -827,10 +854,12 @@ class GXDLMSPushSetup(GXDLMSObject, IGXDLMSBase):
         if target and target != self.portReference:
             self.portReference = target
         # Upload object list after load.
-        if self.pushObjectList and len(self.pushObjectList) != 0:
-            self.pushObjectList.clear()
+        if self.pushObjectList:
+            objects = []
             for obj, co in self.pushObjectList:
                 target = reader.objects.findByLN(obj.objectType, obj.logicalName)
                 if target and target != obj:
                     obj = target
-                self.pushObjectList.append((obj, co))
+                objects.append((obj, co))
+            self.pushObjectList.clear()
+            self.pushObjectList.extend(objects)

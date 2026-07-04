@@ -100,6 +100,9 @@ from .objects.GXDLMSG3PlcMacLayerCounters import GXDLMSG3PlcMacLayerCounters
 from .objects.GXDLMSG3PlcMacSetup import GXDLMSG3PlcMacSetup
 from .objects.GXDLMSFunctionControl import GXDLMSFunctionControl
 from .objects.GXDLMSG3Plc6LoWPan import GXDLMSG3Plc6LoWPan
+from .objects.GXDLMSLteMonitoring import GXDLMSLteMonitoring
+from .objects.GXDLMSCommunicationPortProtection import GXDLMSCommunicationPortProtection
+from .objects.GXDLMSArrayManager import GXDLMSArrayManager
 
 
 class _GXObjectFactory:
@@ -238,6 +241,12 @@ class _GXObjectFactory:
             ret = GXDLMSG3Plc6LoWPan()
         elif ot == ObjectType.FUNCTION_CONTROL:
             ret = GXDLMSFunctionControl()
+        elif ot == ObjectType.LTE_MONITORING:
+            ret = GXDLMSLteMonitoring()
+        elif ot == ObjectType.COMMUNICATION_PORT_PROTECTION:
+            ret = GXDLMSCommunicationPortProtection()
+        elif ot == ObjectType.ARRAY_MANAGER:
+            ret = GXDLMSArrayManager()
         else:
             ret = GXDLMSObject(ot)
         return ret

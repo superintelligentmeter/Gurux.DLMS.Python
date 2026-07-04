@@ -72,6 +72,8 @@ from .enums.AccessMode import AccessMode
 from .enums.MethodAccessMode import MethodAccessMode
 from .enums.AccessMode3 import AccessMode3
 from .enums.MethodAccessMode3 import MethodAccessMode3
+from .internal._GXLocalizer import _GXLocalizer
+from .ecdsa.GXEcdsa import GXEcdsa
 
 
 # pylint:disable=bad-option-value,too-many-instance-attributes,too-many-arguments,too-many-public-methods,useless-object-inheritance
@@ -188,6 +190,17 @@ class GXDLMSClient(object):
     # Server Address.
     #
     serverAddress = property(__getServerAddress, __setServerAddress)
+
+    @property
+    def compressionOptions(self):
+        """
+        Gets the compression options used for data transmission.
+        """
+        return self.settings.compressionOptions
+
+    @compressionOptions.setter
+    def compressionOptions(self, value):
+        self.settings.compressionOptions = value
 
     def getServerAddressSize(self):
         return self.settings.serverAddressSize
@@ -663,6 +676,13 @@ class GXDLMSClient(object):
             tmp.set(self.settings.stoCChallenge)
             tmp.set(self.settings.ctoSChallenge)
             pw = tmp.array()
+        elif self.settings.authentication == Authentication.HIGH_ECDSA:
+            tmp = GXByteBuffer()
+            tmp.set(self.settings.cipher.systemTitle)
+            tmp.set(self.settings.sourceSystemTitle)
+            tmp.set(self.settings.stoCChallenge)
+            tmp.set(self.settings.ctoSChallenge)
+            pw = tmp.array()
         else:
             pw = self.settings.password
         challenge = GXSecure.secure(
@@ -672,11 +692,7 @@ class GXDLMSClient(object):
             self.settings.getStoCChallenge(),
             pw,
         )
-        if (
-            self.settings.cipher
-            and self.settings.increaseInvocationCounterForGMacAuthentication
-        ):
-            self.settings.cipher.invocationCounter += 1
+        self.settings.cipher.invocationCounter += 1
         if self.useLogicalNameReferencing:
             return self.__method(
                 "0.0.40.0.0.255",
@@ -713,31 +729,40 @@ class GXDLMSClient(object):
             value = _GXCommon.getData(self.settings, reply, info)
             if value:
                 if self.settings.authentication == Authentication.HIGH_ECDSA:
-                    raise ValueError("ECDSA is not supported.")
-                if self.settings.authentication == Authentication.HIGH_GMAC:
-                    secret = self.settings.sourceSystemTitle
-                    bb = GXByteBuffer(value)
-                    bb.getUInt8()
-                    ic = bb.getUInt32()
-                elif self.settings.authentication == Authentication.HIGH_SHA256:
+                    if not self.settings.cipher.signingKeyPair:
+                        raise ValueError("SigningKeyPair is empty.")
                     tmp2 = GXByteBuffer()
-                    tmp2.set(self.settings.password)
                     tmp2.set(self.settings.sourceSystemTitle)
                     tmp2.set(self.settings.cipher.systemTitle)
                     tmp2.set(self.settings.ctoSChallenge)
                     tmp2.set(self.settings.stoCChallenge)
-                    secret = tmp2.array()
+                    sig = GXEcdsa(self.settings.cipher.signingKeyPair[0])
+                    equals = sig.verify(value, tmp2.array())
                 else:
-                    secret = self.settings.password
-                tmp = GXSecure.secure(
-                    self.settings,
-                    self.settings.cipher,
-                    ic,
-                    self.settings.getCtoSChallenge(),
-                    secret,
-                )
-                challenge = GXByteBuffer(tmp)
-                equals = challenge.compare(value)
+                    if self.settings.authentication == Authentication.HIGH_GMAC:
+                        secret = self.settings.sourceSystemTitle
+                        bb = GXByteBuffer(value)
+                        bb.getUInt8()
+                        ic = bb.getUInt32()
+                    elif self.settings.authentication == Authentication.HIGH_SHA256:
+                        tmp2 = GXByteBuffer()
+                        tmp2.set(self.settings.password)
+                        tmp2.set(self.settings.sourceSystemTitle)
+                        tmp2.set(self.settings.cipher.systemTitle)
+                        tmp2.set(self.settings.ctoSChallenge)
+                        tmp2.set(self.settings.stoCChallenge)
+                        secret = tmp2.array()
+                    else:
+                        secret = self.settings.password
+                    tmp = GXSecure.secure(
+                        self.settings,
+                        self.settings.cipher,
+                        ic,
+                        self.settings.getCtoSChallenge(),
+                        secret,
+                    )
+                    challenge = GXByteBuffer(tmp)
+                    equals = challenge.compare(value)
                 if not equals:
                     print(
                         "Invalid StoC:"
@@ -758,14 +783,14 @@ class GXDLMSClient(object):
         if (self.settings.connected & ConnectionState.DLMS) == 0:
             return None
         buff = GXByteBuffer()
-        buff.setUInt8(3)
-        buff.setUInt8(0x80)
-        buff.setUInt8(1)
-        buff.setUInt8(00)
         # Restore default values.
         self.maxReceivePDUSize = self.initializePduSize
         self.settings.setCtoSChallenge(self.initializeChallenge)
         if self.useProtectedRelease:
+            buff.setUInt8(0)
+            buff.setUInt8(0x80)
+            buff.setUInt8(1)
+            buff.setUInt8(0)
             # Increase IC.
             if self.settings.cipher and self.settings.cipher.isCiphered:
                 self.settings.cipher.invocationCounter = (
@@ -805,11 +830,14 @@ class GXDLMSClient(object):
             reply = self.releaseRequest()
             if reply:
                 reply = reply[0]
-        # Restore default HDLC values.
-        self.hdlcSettings.maxInfoTX = self.initializeMaxInfoTX
-        self.hdlcSettings.maxInfoRX = self.initializeMaxInfoRX
-        self.hdlcSettings.windowSizeTX = self.initializeWindowSizeTX
-        self.hdlcSettings.windowSizeRX = self.initializeWindowSizeRX
+        if GXDLMS.useHdlc(self.settings.interfaceType):
+            # Restore default HDLC values.
+            self.hdlcSettings.maxInfoTX = self.initializeMaxInfoTX
+            self.hdlcSettings.maxInfoRX = self.initializeMaxInfoRX
+            self.hdlcSettings.windowSizeTX = self.initializeWindowSizeTX
+            self.hdlcSettings.windowSizeRX = self.initializeWindowSizeRX
+        # Restore default values.
+        self.maxReceivePDUSize = self.initializePduSize
         self.settings.connected = ConnectionState.NONE
         self.settings.resetFrameSequence()
         return reply
@@ -965,6 +993,9 @@ class GXDLMSClient(object):
         return items
 
     def updateValue(self, target, attributeIndex, value, parameters=None):
+        if value and target.getDataType(attributeIndex) == DataType.NONE:
+            target.setDataType(attributeIndex, _GXCommon.getDLMSDataType(value))
+
         if isinstance(value, (bytes, bytearray)):
             type_ = target.getUIDataType(attributeIndex)
             if type_ == DataType.DATETIME and len(value) == 5:
@@ -1514,8 +1545,8 @@ class GXDLMSClient(object):
                 # Convert to upper case letter.
                 if crypted[pos] > "9" and crypted[pos] < "A":
                     crypted[pos] += 7
-                if crypted[pos] > 'F':
-                    crypted[pos] = int('0') + int(crypted[pos]) - int('G')
+                if crypted[pos] > "F":
+                    crypted[pos] = int("0") + int(crypted[pos]) - int("G")
         return crypted
 
     @classmethod
@@ -1628,5 +1659,10 @@ class GXDLMSClient(object):
         if self.interfaceType == InterfaceType.WRAPPER:
             if data.available() < 8 or data.getUInt16(data.position) != 1:
                 return 8 - data.available()
-            return data.getUInt16(data.position + 6)
+            return 8 + data.getUInt16(data.position + 6) - data.available()
         return 1
+
+    @staticmethod
+    def localize(lang_code):
+        """Localize error messages."""
+        _GXLocalizer.init(lang_code)

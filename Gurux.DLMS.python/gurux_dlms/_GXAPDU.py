@@ -145,7 +145,7 @@ class _GXAPDU:
                 data.setUInt8(2)
 
         #  Add system title.
-        if not settings.isServer and (ciphered or settings.authentication == Authentication.HIGH_GMAC) or settings.authentication == Authentication.HIGH_ECDSA:
+        if not settings.isServer and (ciphered or settings.authentication in (Authentication.HIGH_GMAC, Authentication.HIGH_SHA256, Authentication.HIGH_ECDSA)):
             if len(cipher.systemTitle) != 8:
                 raise ValueError("SystemTitle")
             #  Add calling-AP-title
@@ -262,6 +262,7 @@ class _GXAPDU:
                 cls.getInitiateRequest(settings, tmp)
                 p = AesGcmParameter(Command.GLO_INITIATE_REQUEST, cipher.systemTitle, cipher.blockCipherKey, cipher.authenticationKey)
                 p.security = cipher.security
+                p.securitySuite = cipher.securitySuite
                 p.invocationCounter = cipher.invocationCounter
                 crypted = GXCiphering.encrypt(p, tmp.array())
                 cipher.invocationCounter = 1 + cipher.invocationCounter
@@ -532,7 +533,7 @@ class _GXAPDU:
                         data.position = originalPos - 1
                         p = AesGcmParameter(0, st, settings.cipher.blockCipherKey, settings.cipher.authenticationKey)
                         p.xml = xml
-                        tmp = GXCiphering.decrypt(settings.cipher, p, data)
+                        tmp = GXCiphering.decrypt(settings, p, data)
                         data.clear()
                         data.set(tmp)
                         cipher.setSecurity(p.security)
@@ -549,7 +550,7 @@ class _GXAPDU:
                 return
             data.position = data.position - 1
             p = AesGcmParameter(0, settings.sourceSystemTitle, settings.cipher.blockCipherKey, settings.cipher.authenticationKey)
-            tmp = GXCiphering.decrypt(settings.cipher, p, data)
+            tmp = GXCiphering.decrypt(settings, p, data)
             data.size = 0
             data.set(tmp)
             cipher.security = p.security

@@ -31,8 +31,16 @@
 #  This code is licensed under the GNU General Public License v2.
 #  Full text may be retrieved at http://www.gnu.org/licenses/gpl-2.0.txt
 # ---------------------------------------------------------------------------
-from __future__ import print_function
-import pkg_resources
+
+import sys
+
+if sys.version_info > (3, 8):
+    from importlib.resources import files
+elif sys.version_info >= (3, 7) and sys.version_info <= (3, 8):
+    import importlib_resources
+else:
+    import pkg_resources
+
 from .enums import Standard, ObjectType, DataType
 from .GXStandardObisCodeCollection import GXStandardObisCodeCollection
 from .GXStandardObisCode import GXStandardObisCode
@@ -51,9 +59,11 @@ from .GXDateTime import GXDateTime
 from .GXTime import GXTime
 from .GXByteBuffer import GXByteBuffer
 from .manufacturersettings.GXObisCode import GXObisCode
+from .objects.enums.CertificateType import CertificateType
+
 
 ###Python 2 requires this
-#pylint: disable=bad-option-value,old-style-class
+# pylint: disable=bad-option-value,old-style-class
 class GXDLMSConverter:
     #
     # Constructor.
@@ -85,12 +95,27 @@ class GXDLMSConverter:
             if description and not it.description.lower().contains(description.lower()):
                 continue
             if all_:
-                list_.append("A=" + it.getOBIS()[0] + ", B=" + it.getOBIS()[1] + ", C=" + it.getOBIS()[2] + ", D=" + it.getOBIS()[3] + ", E=" + it.getOBIS()[4] + ", F=" + it.getOBIS()[5] + "\r\n" + it.description)
+                list_.append(
+                    "A="
+                    + it.getOBIS()[0]
+                    + ", B="
+                    + it.getOBIS()[1]
+                    + ", C="
+                    + it.getOBIS()[2]
+                    + ", D="
+                    + it.getOBIS()[3]
+                    + ", E="
+                    + it.getOBIS()[4]
+                    + ", F="
+                    + it.getOBIS()[5]
+                    + "\r\n"
+                    + it.description
+                )
             else:
                 list_.append(it.description)
         return list_
 
-    #pylint: disable=too-many-boolean-expressions
+    # pylint: disable=too-many-boolean-expressions
     @classmethod
     def __updateOBISCodeInfo(cls, codes, it, standard):
         ln = it.logicalName
@@ -99,7 +124,7 @@ class GXDLMSConverter:
         if code_:
             if not it.description:
                 it.description = code_.description
-            #Update data type from DLMS standard.
+            # Update data type from DLMS standard.
             if standard != Standard.DLMS:
                 d = list_[len(list_) - 1]
                 code_.dataType = d.dataType
@@ -109,28 +134,85 @@ class GXDLMSConverter:
                 elif "25" in code_.dataType or "26" in code_.dataType:
                     code_.uiDataType = "25"
                 elif "9" in code_.dataType:
-                    if (GXStandardObisCodeCollection.equalsMask2("0.0-64.96.7.10-14.255", ln) or GXStandardObisCodeCollection.equalsMask2("0.0-64.0.1.5.0-99,255", ln) or GXStandardObisCodeCollection.equalsMask2("0.0-64.0.1.2.0-99,255", ln) or GXStandardObisCodeCollection.equalsMask2("1.0-64.0.1.2.0-99,255", ln) or GXStandardObisCodeCollection.equalsMask2("1.0-64.0.1.5.0-99,255", ln) or GXStandardObisCodeCollection.equalsMask2("1.0-64.0.9.0.255", ln) or GXStandardObisCodeCollection.equalsMask2("1.0-64.0.9.6.255", ln) or GXStandardObisCodeCollection.equalsMask2("1.0-64.0.9.7.255", ln) or GXStandardObisCodeCollection.equalsMask2("1.0-64.0.9.13.255", ln) or GXStandardObisCodeCollection.equalsMask2("1.0-64.0.9.14.255", ln) or GXStandardObisCodeCollection.equalsMask2("1.0-64.0.9.15.255", ln)):
+                    if (
+                        GXStandardObisCodeCollection.equalsMask2(
+                            "0.0-64.96.7.10-14.255", ln
+                        )
+                        or GXStandardObisCodeCollection.equalsMask2(
+                            "0.0-64.0.1.5.0-99,255", ln
+                        )
+                        or GXStandardObisCodeCollection.equalsMask2(
+                            "0.0-64.0.1.2.0-99,255", ln
+                        )
+                        or GXStandardObisCodeCollection.equalsMask2(
+                            "1.0-64.0.1.2.0-99,255", ln
+                        )
+                        or GXStandardObisCodeCollection.equalsMask2(
+                            "1.0-64.0.1.5.0-99,255", ln
+                        )
+                        or GXStandardObisCodeCollection.equalsMask2(
+                            "1.0-64.0.9.0.255", ln
+                        )
+                        or GXStandardObisCodeCollection.equalsMask2(
+                            "1.0-64.0.9.6.255", ln
+                        )
+                        or GXStandardObisCodeCollection.equalsMask2(
+                            "1.0-64.0.9.7.255", ln
+                        )
+                        or GXStandardObisCodeCollection.equalsMask2(
+                            "1.0-64.0.9.13.255", ln
+                        )
+                        or GXStandardObisCodeCollection.equalsMask2(
+                            "1.0-64.0.9.14.255", ln
+                        )
+                        or GXStandardObisCodeCollection.equalsMask2(
+                            "1.0-64.0.9.15.255", ln
+                        )
+                    ):
                         code_.uiDataType = "25"
-                    #Local time
-                    elif GXStandardObisCodeCollection.equalsMask2("1.0-64.0.9.1.255", ln):
+                    # Local time
+                    elif GXStandardObisCodeCollection.equalsMask2(
+                        "1.0-64.0.9.1.255", ln
+                    ):
                         code_.uiDataType = "27"
-                    #Local date
-                    elif GXStandardObisCodeCollection.equalsMask2("1.0-64.0.9.2.255", ln):
+                    # Local date
+                    elif GXStandardObisCodeCollection.equalsMask2(
+                        "1.0-64.0.9.2.255", ln
+                    ):
                         code_.uiDataType = "26"
-                    #Active firmware identifier
+                    # Active firmware identifier
                     elif GXStandardObisCodeCollection.equalsMask2("1.0.0.2.0.255", ln):
                         code_.uiDataType = "10"
-                #Unix time
-                elif it.objectType == ObjectType.DATA and GXStandardObisCodeCollection.equalsMask2("0.0.1.1.0.255", it.logicalName):
+                # Unix time
+                elif (
+                    it.objectType == ObjectType.DATA
+                    and GXStandardObisCodeCollection.equalsMask2(
+                        "0.0.1.1.0.255", it.logicalName
+                    )
+                ):
                     code_.uiDataType = "25"
 
-            if not code_.dataType == "*" and not code_.dataType == "" and "," not in code_.dataType:
+            if (
+                not code_.dataType == "*"
+                and not code_.dataType == ""
+                and "," not in code_.dataType
+            ):
                 tp = int(code_.dataType)
-                if it.objectType in (ObjectType.DATA, ObjectType.REGISTER, ObjectType.REGISTER_ACTIVATION, ObjectType.EXTENDED_REGISTER):
+                if it.objectType in (
+                    ObjectType.DATA,
+                    ObjectType.REGISTER,
+                    ObjectType.REGISTER_ACTIVATION,
+                    ObjectType.EXTENDED_REGISTER,
+                ):
                     it.setDataType(2, tp)
             if code_.uiDataType:
                 tp = int(code_.uiDataType)
-                if it.objectType in (ObjectType.DATA, ObjectType.REGISTER, ObjectType.REGISTER_ACTIVATION, ObjectType.EXTENDED_REGISTER):
+                if it.objectType in (
+                    ObjectType.DATA,
+                    ObjectType.REGISTER,
+                    ObjectType.REGISTER_ACTIVATION,
+                    ObjectType.EXTENDED_REGISTER,
+                ):
                     it.setUIDataType(2, tp)
         else:
             print("Unknown OBIS Code: " + it.logicalName + " Type: " + it.objectType)
@@ -145,23 +227,35 @@ class GXDLMSConverter:
             self.__updateOBISCodeInfo(self.codes, objects, self.standard)
 
     @classmethod
+    def __load(cls, name):
+        if sys.version_info > (3, 8):
+            str_ = (files(__package__) / name).read_text("utf-8")
+        elif sys.version_info >= (3, 7) and sys.version_info <= (3, 8):
+            str_ = (
+                importlib_resources.files(__package__).joinpath(name).read_text("utf-8")
+            )
+        else:
+            str_ = pkg_resources.resource_string(__name__, name).decode("utf-8")
+        return str_
+
+    @classmethod
     def __getObjects(cls, standard):
         codes = []
         if standard == Standard.ITALY:
-            str_ = pkg_resources.resource_string(__name__, "Italy.txt").decode("utf-8")
+            str_ = cls.__load("Italy.txt")
         elif standard == Standard.INDIA:
-            str_ = pkg_resources.resource_string(__name__, "India.txt").decode("utf-8")
+            str_ = cls.__load("India.txt")
         elif standard == Standard.SAUDI_ARABIA:
-            str_ = pkg_resources.resource_string(__name__, "SaudiArabia.txt").decode("utf-8")
+            str_ = cls.__load("SaudiArabia.txt")
         elif standard == Standard.SPAIN:
-            str_ = pkg_resources.resource_string(__name__, "Spain.txt").decode("utf-8")
+            str_ = cls.__load("Spain.txt")
         if not str_:
             return None
         str_ = str_.replace("\n", "\r")
-        rows = str_.split('\r')
+        rows = str_.split("\r")
         for it in rows:
             if it and not it.startswith("#"):
-                items = it.split(';')
+                items = it.split(";")
                 if len(items) > 1:
                     ot = int(items[0])
                     ln = _GXCommon.toLogicalName(_GXCommon.logicalNameToBytes(items[1]))
@@ -178,21 +272,34 @@ class GXDLMSConverter:
     def __readStandardObisInfo(cls, standard, codes):
         if standard != Standard.DLMS:
             for it in GXDLMSConverter.__getObjects(standard):
-                tmp = GXStandardObisCode(it.logicalName.split('.'))
+                tmp = GXStandardObisCode(it.logicalName.split("."))
                 tmp.interfaces = str(it.objectType)
                 tmp.description = it.description
                 tmp.uiDataType = it.uiDataType
                 codes.append(tmp)
 
-        str_ = pkg_resources.resource_string(__name__, "OBISCodes.txt").decode("utf-8")
+        str_ = cls.__load("OBISCodes.txt")
         str_ = str_.replace("\n", "\r")
-        rows = str_.split('\r')
+        rows = str_.split("\r")
         for it in rows:
             if it and not it.startswith("#"):
-                items = it.split(';')
-                obis = items[0].split('.')
+                items = it.split(";")
+                obis = items[0].split(".")
                 try:
-                    code_ = GXStandardObisCode(obis, str(items[3]) + "; " + str(items[4]) + "; " + str(items[5]) + "; " + str(items[6]) + "; " + str(items[7]), str(items[1]), str(items[2]))
+                    code_ = GXStandardObisCode(
+                        obis,
+                        str(items[3])
+                        + "; "
+                        + str(items[4])
+                        + "; "
+                        + str(items[5])
+                        + "; "
+                        + str(items[6])
+                        + "; "
+                        + str(items[7]),
+                        str(items[1]),
+                        str(items[2]),
+                    )
                     codes.append(code_)
                 except UnicodeEncodeError:
                     pass
@@ -253,7 +360,7 @@ class GXDLMSConverter:
         elif type_ == DataType.UINT8:
             ret = GXUInt8(value)
         else:
-            raise ValueError('Invalid data type.')
+            raise ValueError("Invalid data type.")
         return ret
 
     @classmethod
@@ -316,6 +423,10 @@ class GXDLMSConverter:
             ret = "RegisterMonitor"
         elif ot == ObjectType.REGISTER_TABLE:
             ret = "RegisterTable"
+        elif ot == ObjectType.DATA_PROTECTION:
+            ret = "DataProtection"
+        elif ot == ObjectType.WIRELESS_MODE_Q_CHANNEL:
+            ret = "WirelessModeQchannel"
         elif ot == ObjectType.ZIG_BEE_SAS_STARTUP:
             ret = "ZigBeeSasStartup"
         elif ot == ObjectType.ZIG_BEE_SAS_JOIN:
@@ -354,6 +465,10 @@ class GXDLMSConverter:
             ret = "ParameterMonitor"
         elif ot == ObjectType.TOKEN_GATEWAY:
             ret = "Token"
+        elif ot == ObjectType.IEC_6205541_ATTRIBUTES:
+            ret = "IEC6205541Attributes"
+        elif ot == ObjectType.ARRAY_MANAGER:
+            ret = "ArrayManager"
         elif ot == ObjectType.GSM_DIAGNOSTIC:
             ret = "GSMDiagnostic"
         elif ot == ObjectType.COMPACT_DATA:
@@ -376,8 +491,46 @@ class GXDLMSConverter:
             ret = "PrimeNbOfdmPlcApplicationsIdentification"
         elif ot == ObjectType.NTP_SETUP:
             ret = "NtpSetup"
+        elif ot == ObjectType.FUNCTION_CONTROL:
+            ret = "FunctionControl"
+        elif ot == ObjectType.SFSK_PHY_MAC_SETUP:
+            ret = "SFSKPhyMacSetUp"
+        elif ot == ObjectType.SFSK_ACTIVE_INITIATOR:
+            ret = "SFSKActiveInitiator"
+        elif ot == ObjectType.SFSK_MAC_SYNCHRONIZATION_TIMEOUTS:
+            ret = "SFSKMacSynchronizationTimeouts"
+        elif ot == ObjectType.SFSK_MAC_COUNTERS:
+            ret = "SFSKMacCounters"
+        elif ot == ObjectType.IEC_61334_4_32_LLC_SETUP:
+            ret = "Iec61334_4_32LlcSetup"
+        elif ot == ObjectType.S_FSK_REPORTING_SYSTEM_LIST:
+            ret = "SFSKReportingSystemList"
+        elif ot == ObjectType.ARBITRATOR:
+            ret = "Arbitrator"
+        elif ot == ObjectType.G3_PLC_MAC_SETUP:
+            ret = "G3PlcMacSetup"
+        elif ot == ObjectType.G3_PLC_MAC_LAYER_COUNTERS:
+            ret = "G3PlcMacLayerCounters"
+        elif ot == ObjectType.G3_PLC6_LO_WPAN:
+            ret = "G3Plc6LoWPan"
+        elif ot == ObjectType.COMMUNICATION_PORT_PROTECTION:
+            ret = "CommunicationPortProtection"
+        elif ot == ObjectType.LTE_MONITORING:
+            ret = "GXDLMSLteMonitoring"
+        elif ot == ObjectType.COAP_SETUP:
+            ret = "CoAPSetup"
+        elif ot == ObjectType.COAP_DIAGNOSTIC:
+            ret = "CoAPDiagnostic"
+        elif ot == ObjectType.G3_PLC_HYBRID_RF_MAC_LAYER_COUNTERS:
+            ret = "G3PlcHybridRfMacLayerCounters"
+        elif ot == ObjectType.G3_PLC_HYBRID_RF_MAC_SETUP:
+            ret = "G3PlcHybridRfMacSetup"
+        elif ot == ObjectType.G3_PLC_HYBRID_6LOWPAN_ADAPTATION_LAYER_SETUP:
+            ret = "G3PlcHybrid6LoWPANAdaptationLayerSetup"
+        elif ot == ObjectType.TARIFF_PLAN:
+            ret = "TariffPlan"
         else:
-            ret = "Manufacture spesific."
+            ret = "ManufactureSpesific."
         return ret
 
     @classmethod
@@ -410,7 +563,11 @@ class GXDLMSConverter:
             ot = ObjectType.SECURITY_SETUP
         elif value in ("IecHdlcSetup", "HdlcSetup"):
             ot = ObjectType.IEC_HDLC_SETUP
-        elif value in ("IecLocalPortSetup", "IecOpticalPortSetup"):
+        elif value in (
+            "IecLocalPortSetup",
+            "IecOpticalPortSetup",
+            "IECOpticalPortSetup",
+        ):
             ot = ObjectType.IEC_LOCAL_PORT_SETUP
         elif value == "IEC_TWISTED_PAIR_SETUP":
             ot = ObjectType.IEC_TWISTED_PAIR_SETUP
@@ -440,6 +597,10 @@ class GXDLMSConverter:
             ot = ObjectType.REGISTER_MONITOR
         elif value == "RegisterTable":
             ot = ObjectType.REGISTER_TABLE
+        elif value == "DataProtection":
+            ot = ObjectType.DATA_PROTECTION
+        elif value == "WirelessModeQchannel":
+            ot = ObjectType.WIRELESS_MODE_Q_CHANNEL
         elif value == "ZigBeeSasStartup":
             ot = ObjectType.ZIG_BEE_SAS_STARTUP
         elif value == "ZigBeeSasJoin":
@@ -478,6 +639,10 @@ class GXDLMSConverter:
             ot = ObjectType.PARAMETER_MONITOR
         elif value in ("Token", "TokenGateway"):
             ot = ObjectType.TOKEN_GATEWAY
+        elif value == "IEC6205541Attributes":
+            ot = ObjectType.IEC_6205541_ATTRIBUTES
+        elif value == "ArrayManager":
+            ot = ObjectType.ARRAY_MANAGER
         elif value == "GSMDiagnostic":
             ot = ObjectType.GSM_DIAGNOSTIC
         elif value == "CompactData":
@@ -500,6 +665,131 @@ class GXDLMSConverter:
             ot = ObjectType.PRIME_NB_OFDM_PLC_APPLICATIONS_IDENTIFICATION
         elif value == "NtpSetup":
             ot = ObjectType.NTP_SETUP
+        elif value == "FunctionControl":
+            ot = ObjectType.FUNCTION_CONTROL
+        elif value == "SFSKPhyMacSetUp":
+            ot = ObjectType.SFSK_PHY_MAC_SETUP
+        elif value == "SFSKActiveInitiator":
+            ot = ObjectType.SFSK_ACTIVE_INITIATOR
+        elif value == "SFSKMacSynchronizationTimeouts":
+            ot = ObjectType.SFSK_MAC_SYNCHRONIZATION_TIMEOUTS
+        elif value == "SFSKMacCounters":
+            ot = ObjectType.SFSK_MAC_COUNTERS
+        elif value == "Iec61334_4_32LlcSetup":
+            ot = ObjectType.IEC_61334_4_32_LLC_SETUP
+        elif value == "SFSKReportingSystemList":
+            ot = ObjectType.S_FSK_REPORTING_SYSTEM_LIST
+        elif value == "Arbitrator":
+            ot = ObjectType.ARBITRATOR
+        elif value == "G3PlcMacSetup":
+            ot = ObjectType.G3_PLC_MAC_SETUP
+        elif value == "G3PlcMacLayerCounters":
+            ot = ObjectType.G3_PLC_MAC_LAYER_COUNTERS
+        elif value == "G3Plc6LoWPan":
+            ot = ObjectType.G3_PLC6_LO_WPAN
+        elif value == "CommunicationPortProtection":
+            ot = ObjectType.COMMUNICATION_PORT_PROTECTION
+        elif value == "GXDLMSLteMonitoring":
+            ot = ObjectType.LTE_MONITORING
+        elif value == "CoAPSetup":
+            ot = ObjectType.COAP_SETUP
+        elif value == "CoAPDiagnostic":
+            ot = ObjectType.COAP_DIAGNOSTIC
+        elif value == "G3PlcHybridRfMacLayerCounters":
+            ot = ObjectType.G3_PLC_HYBRID_RF_MAC_LAYER_COUNTERS
+        elif value == "G3PlcHybridRfMacSetup":
+            ot = ObjectType.G3_PLC_HYBRID_RF_MAC_SETUP
+        elif value == "G3PlcHybrid6LoWPANAdaptationLayerSetup":
+            ot = ObjectType.G3_PLC_HYBRID_6LOWPAN_ADAPTATION_LAYER_SETUP
+        elif value == "TariffPlan":
+            ot = ObjectType.TARIFF_PLAN
         else:
             ot = ObjectType.NONE
         return ot
+
+    @classmethod
+    def dataTypeToString(cls, ot):
+        match ot:
+            case DataType.ARRAY:
+                return "Array"
+            case DataType.BCD:
+                return "Bcd"
+            case DataType.BITSTRING:
+                return "BitString"
+            case DataType.BOOLEAN:
+                return "Boolean"
+            case DataType.COMPACT_ARRAY:
+                return "CompactArray"
+            case DataType.DATE:
+                return "Date"
+            case DataType.DATETIME:
+                return "DateTime"
+            case DataType.ENUM:
+                return "Enum"
+            case DataType.FLOAT32:
+                return "Float32"
+            case DataType.FLOAT64:
+                return "Float64"
+            case DataType.INT16:
+                return "Int16"
+            case DataType.INT32:
+                return "Int32"
+            case DataType.INT64:
+                return "Int64"
+            case DataType.INT8:
+                return "Int8"
+            case DataType.NONE:
+                return "None"
+            case DataType.OCTET_STRING:
+                return "Octet-string"
+            case DataType.STRING:
+                return "String"
+            case DataType.STRING_UTF8:
+                return "String UTF8"
+            case DataType.STRUCTURE:
+                return "Structure"
+            case DataType.TIME:
+                return "Time"
+            case DataType.UINT16:
+                return "UInt16"
+            case DataType.UINT32:
+                return "UInt32"
+            case DataType.UINT64:
+                return "UInt64"
+            case DataType.UINT8:
+                return "UInt8"
+            case _:
+                raise ValueError("Unknown DataType")
+
+    # pylint: disable=import-outside-toplevel
+    @classmethod
+    def systemTitleToString(cls, standard, st, addComments):
+        """Convert system title to string."""
+        return _GXCommon.systemTitleToString(standard, st, addComments)
+
+    # pylint: disable=import-outside-toplevel
+    @classmethod
+    def keyUsageToCertificateType(cls, value):
+        """Convert key usage to certificate type."""
+        from .asn.enums.KeyUsage import KeyUsage
+
+        if value == KeyUsage.DIGITAL_SIGNATURE:
+            return CertificateType.DIGITAL_SIGNATURE
+        if value == KeyUsage.KEY_AGREEMENT:
+            return CertificateType.KEY_AGREEMENT
+        if value == KeyUsage.DIGITAL_SIGNATURE | KeyUsage.KEY_AGREEMENT:
+            return CertificateType.TLS
+        raise ValueError("Unknown KeyUsage value")
+
+    # pylint: disable=import-outside-toplevel
+    @classmethod
+    def CertificateTypeToKeyUsage(cls, value):
+        from .asn.enums.KeyUsage import KeyUsage
+
+        if value == CertificateType.DIGITAL_SIGNATURE:
+            return KeyUsage.DIGITAL_SIGNATURE
+        if value == CertificateType.KEY_AGREEMENT:
+            return KeyUsage.KEY_AGREEMENT
+        if value == CertificateType.TLS:
+            return KeyUsage.DIGITAL_SIGNATURE | KeyUsage.KEY_AGREEMENT
+        raise ValueError("Unknown CertificateType value")

@@ -35,6 +35,7 @@ import abc
 
 ABC = abc.ABCMeta("ABC", (object,), {"__slots__": ()})
 
+
 class IGXCryptoNotifier(ABC):
     """
     The server uses this interface to notify client connections.
@@ -54,7 +55,7 @@ class IGXCryptoNotifier(ABC):
 
     @abc.abstractmethod
     def onKey(self, sender, args):
-        """Called when the public or private key is needed 
+        """Called when the public or private key is needed
         and it's unknown.
 
         sender : The source of the event.
@@ -63,7 +64,7 @@ class IGXCryptoNotifier(ABC):
 
     @abc.abstractmethod
     def onCrypto(self, sender, args):
-        """Called to encrypt or decrypt the data using 
+        """Called to encrypt or decrypt the data using
         external Hardware Security Module.
 
         sender : The source of the event.

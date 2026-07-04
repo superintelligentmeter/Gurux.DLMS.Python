@@ -34,43 +34,56 @@
 import os
 import sys
 import traceback
+import gurux_dlms
 from gurux_serial import GXSerial
 from gurux_net import GXNet
 from gurux_dlms.enums import ObjectType
 from gurux_dlms.objects.GXDLMSObjectCollection import GXDLMSObjectCollection
 from GXSettings import GXSettings
 from GXDLMSReader import GXDLMSReader
-from gurux_dlms.GXDLMSClient import GXDLMSClient
-from gurux_common.GXCommon import GXCommon
-from gurux_dlms.enums.DataType import DataType
 import locale
-from gurux_dlms.GXDateTime import GXDateTime
-from gurux_dlms.internal._GXCommon import _GXCommon
-from gurux_dlms import GXDLMSException, GXDLMSExceptionResponse, GXDLMSConfirmedServiceError, GXDLMSTranslator
-from gurux_dlms import GXByteBuffer, GXDLMSTranslatorMessage, GXReplyData
-from gurux_dlms.enums import RequestTypes, Security, InterfaceType
-from gurux_dlms.secure.GXDLMSSecureClient import GXDLMSSecureClient
-
+from gurux_dlms import (
+    GXDLMSException,
+    GXDLMSExceptionResponse,
+    GXDLMSConfirmedServiceError,
+)
 
 try:
-    import pkg_resources
-    #pylint: disable=broad-except
+    if sys.version_info >= (3, 7):
+        from importlib.metadata import version
+    else:
+        import pkg_resources
+    # pylint: disable=broad-except
 except Exception:
-    #It's OK if this fails.
+    # It's OK if this fails.
     print("pkg_resources not found")
 
-#pylint: disable=too-few-public-methods,broad-except
-class sampleclient():
+
+# pylint: disable=too-few-public-methods,broad-except
+class sampleclient:
     @classmethod
     def main(cls, args):
         try:
-            print("gurux_dlms version: " + pkg_resources.get_distribution("gurux_dlms").version)
-            print("gurux_net version: " + pkg_resources.get_distribution("gurux_net").version)
-            print("gurux_serial version: " + pkg_resources.get_distribution("gurux_serial").version)
+            if sys.version_info >= (3, 7):
+                print("gurux_dlms version: " + version("gurux_dlms"))
+                print("gurux_net version: " + version("gurux_net"))
+                print("gurux_serial version: " + version("gurux_serial"))
+            else:
+                print(
+                    "gurux_dlms version: "
+                    + pkg_resources.get_distribution("gurux_dlms").version
+                )
+                print(
+                    "gurux_net version: "
+                    + pkg_resources.get_distribution("gurux_net").version
+                )
+                print(
+                    "gurux_serial version: "
+                    + pkg_resources.get_distribution("gurux_serial").version
+                )
         except Exception:
-            #It's OK if this fails.
+            # It's OK if this fails.
             print("pkg_resources not found")
-
         # args: the command line arguments
         reader = None
         settings = GXSettings()
@@ -85,9 +98,24 @@ class sampleclient():
             if not isinstance(settings.media, (GXSerial, GXNet)):
                 raise Exception("Unknown media type.")
             # //////////////////////////////////////
-            reader = GXDLMSReader(settings.client, settings.media, settings.trace, settings.invocationCounter)
+            reader = GXDLMSReader(
+                settings.client,
+                settings.media,
+                settings.trace,
+                settings.invocationCounter,
+            )
+            # Enable Compression:
+            # Add compression package to onCompression event handler when compression is needed.
+            # settings.client.compressionOptions.enableCompression = True
+
             settings.media.open()
-            if settings.readObjects:
+            # Export client and server certificates from the meter.
+            if settings.exportSecuritySetupLN:
+                reader.exportMeterCertificates(settings.exportSecuritySetupLN)
+            # Generate new client and server certificates and import them to the server.
+            elif settings.generateSecuritySetupLN:
+                reader.generateCertificates(settings.generateSecuritySetupLN)
+            elif settings.readObjects:
                 read = False
                 reader.initializeConnection()
                 if settings.outputFile and os.path.exists(settings.outputFile):
@@ -110,7 +138,12 @@ class sampleclient():
                     settings.client.objects.save(settings.outputFile)
             else:
                 reader.readAll(settings.outputFile)
-        except (ValueError, GXDLMSException, GXDLMSExceptionResponse, GXDLMSConfirmedServiceError) as ex:
+        except (
+            ValueError,
+            GXDLMSException,
+            GXDLMSExceptionResponse,
+            GXDLMSConfirmedServiceError,
+        ) as ex:
             print(ex)
         except (KeyboardInterrupt, SystemExit, Exception) as ex:
             traceback.print_exc()
@@ -125,6 +158,6 @@ class sampleclient():
                     traceback.print_exc()
             print("Ended. Press any key to continue.")
 
-if __name__ == '__main__':
-   
+
+if __name__ == "__main__":
     sampleclient.main(sys.argv)

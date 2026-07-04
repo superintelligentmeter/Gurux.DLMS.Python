@@ -18,11 +18,11 @@
 #
 #  This file is a part of Gurux Device Framework.
 #
-#  Gurux Device Framework is Open Source software; you can redistribute it
+#  Gurux Device Framework is Open Source software you can redistribute it
 #  and/or modify it under the terms of the GNU General Public License
-#  as published by the Free Software Foundation; version 2 of the License.
+#  as published by the Free Software Foundation version 2 of the License.
 #  Gurux Device Framework is distributed in the hope that it will be useful,
-#  but WITHOUT ANY WARRANTY; without even the implied warranty of
+#  but WITHOUT ANY WARRANTY without even the implied warranty of
 #  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
 #  See the GNU General Public License for more details.
 #
@@ -645,7 +645,7 @@ class _GXCommon:
         value = buff.getDouble()
         if info.xml:
             if info.xml.comments:
-                info.xml.appendComment(("%f" % value).rstrip("0").rstrip("."))
+                info.xml.appendComment(f"{value}".rstrip("0").rstrip("."))
             tmp = GXByteBuffer()
             cls.setData(settings, tmp, DataType.FLOAT64, value)
             info.xml.appendLine(
@@ -674,7 +674,7 @@ class _GXCommon:
         value = buff.getFloat()
         if info.xml:
             if info.xml.comments:
-                info.xml.appendComment(("%f" % value).rstrip("0").rstrip("."))
+                info.xml.appendComment(f"{value}".rstrip("0").rstrip("."))
             tmp = GXByteBuffer()
             cls.setData(settings, tmp, DataType.FLOAT32, value)
             info.xml.appendLine(
@@ -933,12 +933,12 @@ class _GXCommon:
                                     sb += GXByteBuffer.hex(it2)
                                 else:
                                     sb += str(it2)
-                                sb += ";"
+                                sb += ""
                             if start != len(sb):
                                 sb = sb[0 : len(sb) - 1]
                         else:
                             sb += str(it)
-                        sb += ";"
+                        sb += ""
                     if sb:
                         sb = sb[0 : len(sb) - 1]
                     info.xml.appendLine(sb)
@@ -966,7 +966,7 @@ class _GXCommon:
                         info.xml.append(GXByteBuffer.hex(it))
                     else:
                         info.xml.append(str(it))
-                    info.xml.append(";")
+                    info.xml.append("")
                 if list_:
                     info.xml.setXmlLength(info.xml.getXmlLength() - 1)
                 info.xml.appendEndTag(TranslatorTags.ARRAY_CONTENTS, True)
@@ -1856,7 +1856,7 @@ class _GXCommon:
 
         if len(dateString) > 17:
             second = int(dateString[12:14])
-        tz = dateString[dateString.length() - 4 :]
+        tz = dateString[len(dateString) - 4 :]
         return datetime(
             year, month, day, hour, minute, second, 0, tzinfo=GXTimeZone(tz)
         )
@@ -1889,7 +1889,7 @@ class _GXCommon:
         return value
 
     @classmethod
-    def decryptManufacturer(cls, value):
+    def __decryptManufacturer(cls, value):
         tmp = value >> 8 | value << 8
         c = chr(((tmp & 0x1F) + 0x40))
         tmp = tmp >> 5
@@ -1898,71 +1898,106 @@ class _GXCommon:
         c2 = chr(((tmp & 0x1F) + 0x40))
         return "".join([c2, c1, c])
 
+    # Get serial number from the system title.
     @classmethod
-    def idisSystemTitleToString(cls, st):
-        sb = "\n"
-        sb += "IDIS system title:\n"
-        sb += "Manufacturer Code: "
-        sb += (
-            _GXCommon.__getChar(st[0])
-            + _GXCommon.__getChar(st[1])
-            + _GXCommon.__getChar(st[2])
-        )
-        sb += "\nFunction type: "
-        ft = st[4] >> 4
-        add = False
-        if (ft & 0x1) != 0:
-            sb += "Disconnector extension"
-            add = True
-        if (ft & 0x2) != 0:
-            if add:
-                sb += ", "
-            add = True
-            sb += "Load Management extension"
-
-        if (ft & 0x4) != 0:
-            if add:
-                sb += ", "
-            sb += "Multi Utility extension"
-        # Serial number
-        sn = (st[4] & 0xF) << 24
-        sn |= st[5] << 16
-        sn |= st[6] << 8
+    def __getSerialNumber(cls, st, isIdis):
+        sn = 0
+        if not isIdis:
+            sn = st[3] << 8
+            sn |= st[4]
+        else:
+            sn = st[4] & 0xF
+        sn <<= 8
+        sn |= st[5]
+        sn <<= 8
+        sn |= st[6]
+        sn <<= 8
         sn |= st[7]
-        sb += "\n"
-        sb += "Serial number: "
-        sb += str(sn) + "\n"
+        return sn
+
+    @classmethod
+    def idisSystemTitleToString(cls, st, addComments):
+        if addComments:
+            sb = "IDIS system title:\n"
+            sb += "Manufacturer Code: "
+            sb += (
+                _GXCommon.__getChar(st[0])
+                + _GXCommon.__getChar(st[1])
+                + _GXCommon.__getChar(st[2])
+            )
+            sb += "Device type: "
+            if st[3] == 99:
+                sb += "DC"
+            elif st[3] == 100:
+                sb += "IDIS package1 PLC single phase meter"
+            elif st[3] == 101:
+                sb += "IDIS package1 PLC polyphase meter"
+            elif st[3] == 102:
+                sb += "IDIS package2 IP single phase meter"
+            elif st[3] == 103:
+                sb += "IDIS package2 IP polyphase meter"
+
+            sb += "\nFunction type: "
+            ft = st[4] >> 4
+            add = False
+            if (ft & 0x1) != 0:
+                sb += "Disconnector extension"
+                add = True
+            if (ft & 0x2) != 0:
+                if add:
+                    sb += ", "
+                add = True
+                sb += "Load Management extension"
+
+            if (ft & 0x4) != 0:
+                if add:
+                    sb += ", "
+                sb += "Multi Utility extension"
+            # Serial number
+            sb += "\nSerial number: "
+            sb += str(cls.__getSerialNumber(st, True))
+        else:
+            sb = (
+                _GXCommon.__getChar(st[0])
+                + _GXCommon.__getChar(st[1])
+                + _GXCommon.__getChar(st[2])
+            )
+            sb += str(cls.__getSerialNumber(st, True))
         return sb
 
     @classmethod
-    def dlmsSystemTitleToString(cls, st):
-        sb = "\n"
-        sb += "IDIS system title:\n"
-        sb += "Manufacturer Code: "
-        sb += (
-            _GXCommon.__getChar(st[0])
-            + _GXCommon.__getChar(st[1])
-            + _GXCommon.__getChar(st[2])
-        )
-        sb += "Serial number: "
-        sb += (
-            cls.__getChar(st[3])
-            + cls.__getChar(st[4])
-            + cls.__getChar(st[5])
-            + cls.__getChar(st[6])
-            + cls.__getChar(st[7])
-        )
+    def dlmsSystemTitleToString(cls, st, addComments):
+        if addComments:
+            sb = "DLMS system title:\n"
+            sb += "Manufacturer Code: "
+            sb += (
+                _GXCommon.__getChar(st[0])
+                + _GXCommon.__getChar(st[1])
+                + _GXCommon.__getChar(st[2])
+            )
+            sb += "\nSerial number: "
+            sb += str(cls.__getSerialNumber(st, False))
+        else:
+            sb = (
+                _GXCommon.__getChar(st[0])
+                + _GXCommon.__getChar(st[1])
+                + _GXCommon.__getChar(st[2])
+            )
+            sb += str(cls.__getSerialNumber(st, False))
         return sb
 
     @classmethod
-    def uniSystemTitleToString(cls, st):
-        sb = "\n"
-        sb += "UNI/TS system title:\n"
-        sb += "Manufacturer: "
+    def uniSystemTitleToString(cls, st, addComments):
         m = st[0] << 8 | st[1]
-        sb += cls.decryptManufacturer(m)
-        sb += "\nSerial number: "
-        sb += GXByteBuffer.hex((st[7], st[6], st[5], st[4], st[3], st[2]), False)
+        if addComments:
+            sb = "UNI/TS system title:\n"
+            sb += "Manufacturer: "
+            sb += cls.decryptManufacturer(m)
+            sb += "\nSerial number: "
+            sb += GXByteBuffer.hex((st[7], st[6], st[5], st[4], st[3], st[2]), False)
+        else:
+            sb += cls.decryptManufacturer(m)
+            sb += GXByteBuffer.hex((st[7], st[6], st[5], st[4], st[3], st[2]), False)
         return sb
 
     @classmethod
@@ -1975,7 +2010,15 @@ class _GXCommon:
             return str(unichr(ch))
 
     @classmethod
-    def systemTitleToString(cls, standard, st):
+    def __isT1(cls, value):
+        return value > 98 and value < 104
+
+    @classmethod
+    def __isT2(cls, value):
+        return (value & 0xF0) != 0
+
+    @classmethod
+    def systemTitleToString(cls, standard, st, addComments):
         ###Conver system title to string.
         # pylint: disable=too-many-boolean-expressions
         if (
@@ -1984,17 +2027,10 @@ class _GXCommon:
             or not cls.__getChar(st[1]).isalpha()
             or not cls.__getChar(st[2]).isalpha()
         ):
-            return cls.uniSystemTitleToString(st)
-        if (
-            standard == Standard.IDIS
-            or not _GXCommon.__getChar(st[3]).isdigit()
-            or not _GXCommon.__getChar(st[4]).isdigit()
-            or not _GXCommon.__getChar(st[5]).isdigit()
-            or not _GXCommon.__getChar(st[6]).isdigit()
-            or not _GXCommon.__getChar(st[7]).isdigit()
-        ):
-            return cls.idisSystemTitleToString(st)
-        return cls.dlmsSystemTitleToString(st)
+            return cls.uniSystemTitleToString(st, addComments)
+        if standard == Standard.IDIS or (cls.__isT1(st[3]) and cls.__isT2(st[4])):
+            return cls.idisSystemTitleToString(st, addComments)
+        return cls.dlmsSystemTitleToString(st, addComments)
 
     # Reserved for internal use.
     @classmethod
@@ -2017,13 +2053,14 @@ class _GXCommon:
         elif ch == "=":
             ret = 64
         elif ch < ":":
-            ret = 52 + (ch - "0")
+            ret = 52 + ord(ch) - ord("0")
         elif ch < "[":
-            ret = ch - "A"
+            ret = ord(ch) - ord("A")
         elif ch < "{":
-            ret = 26 + (ch - "a")
+            ret = 26 + (ord(ch) - ord("a"))
         else:
             raise ValueError("fromBase64")
+        return ret
 
     @classmethod
     def fromBase64(cls, value):
@@ -2040,28 +2077,91 @@ class _GXCommon:
         if len(value) % 4 != 0:
             raise ValueError("Invalid base64 input")
         len_ = (len(value) * 3) / 4
-        pos = value.indexOf("=")
+        pos = value.find("=")
         if pos > 0:
-            len -= len(value) - pos
-        decoded = bytes[len]
-        b = int[4]
+            len_ -= len(value) - pos
+        decoded = bytearray()
+        b = [0] * 4
         for pos in range(0, len(value) - 1, 4):
             inChars = value[pos : pos + 4]
             b[0] = cls.getIndex(inChars[0])
             b[1] = cls.getIndex(inChars[1])
             b[2] = cls.getIndex(inChars[2])
             b[3] = cls.getIndex(inChars[3])
-            decoded.append((b[0] << 2) or (b[1] >> 4))
+            decoded.append(((b[0] << 2) | (b[1] >> 4)) & 0xFF)
             if b[2] < 64:
-                decoded.append((b[1] << 4) or (b[2] >> 2))
+                decoded.append(((b[1] << 4) | (b[2] >> 2)) & 0xFF)
                 if b[3] < 64:
-                    decoded.append((b[2] << 6) | b[3])
-        return decoded
+                    decoded.append(((b[2] << 6) | b[3]) & 0xFF)
+        return bytes(decoded)
 
-    __BASE_64_ARRAY = ( 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N',
-        'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z', 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i',
-        'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z', '0', '1', '2', '3',
-        '4', '5', '6', '7', '8', '9', '+', '/', '=')
+    __BASE_64_ARRAY = (
+        "A",
+        "B",
+        "C",
+        "D",
+        "E",
+        "F",
+        "G",
+        "H",
+        "I",
+        "J",
+        "K",
+        "L",
+        "M",
+        "N",
+        "O",
+        "P",
+        "Q",
+        "R",
+        "S",
+        "T",
+        "U",
+        "V",
+        "W",
+        "X",
+        "Y",
+        "Z",
+        "a",
+        "b",
+        "c",
+        "d",
+        "e",
+        "f",
+        "g",
+        "h",
+        "i",
+        "j",
+        "k",
+        "l",
+        "m",
+        "n",
+        "o",
+        "p",
+        "q",
+        "r",
+        "s",
+        "t",
+        "u",
+        "v",
+        "w",
+        "x",
+        "y",
+        "z",
+        "0",
+        "1",
+        "2",
+        "3",
+        "4",
+        "5",
+        "6",
+        "7",
+        "8",
+        "9",
+        "+",
+        "/",
+        "=",
+    )
 
     @classmethod
     def toBase64(cls, value):
@@ -2072,23 +2172,23 @@ class _GXCommon:
                 pair: Private key or private/public key pair.
         """
         str_ = ""
-        for pos in range(0, len(value.length) -1, 3):
+        for pos in range(0, len(value), 3):
             b = (value[pos] & 0xFC) >> 2
-            str_.append(cls.__BASE_64_ARRAY[b])
+            str_ += cls.__BASE_64_ARRAY[b]
             b = (value[pos] & 0x03) << 4
             if pos + 1 < len(value):
                 b |= (value[pos + 1] & 0xF0) >> 4
-                str_.append(cls.__BASE_64_ARRAY[b])
+                str_ += cls.__BASE_64_ARRAY[b]
                 b = (value[pos + 1] & 0x0F) << 2
                 if pos + 2 < len(value):
                     b |= (value[pos + 2] & 0xC0) >> 6
-                    str_.append(cls.__BASE_64_ARRAY[b])
+                    str_ += cls.__BASE_64_ARRAY[b]
                     b = value[pos + 2] & 0x3F
-                    str_.append(cls.__BASE_64_ARRAY[b])
+                    str_ += cls.__BASE_64_ARRAY[b]
                 else:
-                    str_.append(cls.__BASE_64_ARRAY[b])
-                    str_.append('=')
+                    str_ += cls.__BASE_64_ARRAY[b]
+                    str_ += "="
             else:
-                str_.append(cls.__BASE_64_ARRAY[b])
-                str_.append("==")            
+                str_ += cls.__BASE_64_ARRAY[b]
+                str_ += "=="
         return str_
