@@ -282,6 +282,12 @@ class GXDLMSReader:
                 bitrate = 9600
             elif baudrate == "6":
                 bitrate = 19200
+            elif baudrate == "7":
+                bitrate = 38400
+            elif baudrate == "8":
+                bitrate = 57600
+            elif baudrate == "9":
+                bitrate = 115200
             else:
                 raise Exception("Unknown baud rate.")
 

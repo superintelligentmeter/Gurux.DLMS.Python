@@ -320,7 +320,7 @@ class GXDLMS:
         if p.data:
             len_ = len(p.data) - p.data.position
         if p.attributeDescriptor:
-            len_ += p.attributeDescriptor.size
+            len_ += p.attributeDescriptor.available()
         if ciphering:
             len_ += GXDLMS.__CIPHERING_HEADER_SIZE
         if not p.multipleBlocks:

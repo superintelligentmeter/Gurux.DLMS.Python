@@ -1557,7 +1557,7 @@ class _GXCommon:
             buff.setUInt16(0x8000)
         else:
             #  Add devitation.
-            d = int(dt.value.utcoffset().seconds / 60)
+            d = int(dt.value.utcoffset().total_seconds() / 60)
             if not (settings and settings.useUtc2NormalTime):
                 d = -d
             buff.setUInt16(d)
@@ -1752,6 +1752,7 @@ class _GXCommon:
             ret = None
         if ret is None:
             # Python 2.7 uses unicode.
+            # pylint: disable=undefined-variable
             try:
                 if isinstance(value, (unicode)):
                     ret = DataType.STRING
@@ -1889,7 +1890,7 @@ class _GXCommon:
         return value
 
     @classmethod
-    def __decryptManufacturer(cls, value):
+    def decryptManufacturer(cls, value):
         tmp = value >> 8 | value << 8
         c = chr(((tmp & 0x1F) + 0x40))
         tmp = tmp >> 5

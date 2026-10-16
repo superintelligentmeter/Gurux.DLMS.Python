@@ -221,7 +221,7 @@ class GXByteBuffer(__base):
         else:
             if index >= self.capacity:
                 self.capacity = index + self.__ARRAY_CAPACITY
-            self._data[index] = item
+            self._data[index] = item & 0xFF
 
     #
     #      Push the given byte into this buffer at the current position, and
@@ -232,7 +232,7 @@ class GXByteBuffer(__base):
     #                 The byte to be added.
     #
     def setInt8(self, item, index=None):
-        self.setUInt8(item & 0xFF, index)
+        self.setUInt8(item, index)
 
     def setUInt16(self, item, index=None):
         if index is None:

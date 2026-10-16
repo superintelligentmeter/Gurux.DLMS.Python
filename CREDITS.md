@@ -1,5 +1,9 @@
 Credits
 =======
+  - fix: handle datetime values with negative UTC offset
+    * [Eriktrif](https://www.gurux.fi/user/210637)
+  - _GXCommon.__decryptManufacturer corrected to decryptManufacturer.
+    * [mrv96](https://github.com/mrv96)
   - Object methods are fixed to call the correct client's method.
     * [Mahmoud Diab](https://github.com/mgehaddiab)
   - imageBlockTransfer issue fixed.
